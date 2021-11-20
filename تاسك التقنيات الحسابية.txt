@@ -1,0 +1,335 @@
+import pyopenms
+help (pyopenms.Constants)
+print  ("Avogadro's number is", pyopenms.Constants.AVOGADRO)
+########################################################
+
+from pyopenms import *
+edb = ElementDB()
+
+edb.hasElement("O")
+edb.hasElement("S")
+
+oxygen = edb.getElement("O")
+print(oxygen.getName())
+print(oxygen.getSymbol())
+print(oxygen.getMonoWeight())
+print(oxygen.getAverageWeight())
+
+sulfur = edb.getElement("S")
+print(sulfur.getName())
+print(sulfur.getSymbol())
+print(sulfur.getMonoWeight())
+print(sulfur.getAverageWeight())
+isotopes = sulfur.getIsotopeDistribution()
+
+print ("One mole of oxygen weighs", 2*oxygen.getAverageWeight(), "grams")
+print ("One mole of 16O2 weighs", 2*oxygen.getMonoWeight(), "grams")
+######################################################################
+Isotopes
+edb = ElementDB()
+oxygen_isoDist = {"mass": [], "abundance": []}
+sulfur_isoDist = {"mass": [], "abundance": []}
+
+oxygen = edb.getElement("O")
+isotopes = oxygen.getIsotopeDistribution()
+for iso in isotopes.getContainer():
+    print ("Oxygen isotope", iso.getMZ(), "has abundance", iso.getIntensity()*100, "%")
+    oxygen_isoDist["mass"].append(iso.getMZ())
+    oxygen_isoDist["abundance"].append((iso.getIntensity() * 100))
+
+sulfur = edb.getElement("S")
+isotopes = sulfur.getIsotopeDistribution()
+for iso in isotopes.getContainer():
+    print ("Sulfur isotope", iso.getMZ(), "has abundance", iso.getIntensity()*100, "%")
+    sulfur_isoDist["mass"].append(iso.getMZ())
+    sulfur_isoDist["abundance"].append((iso.getIntensity() * 100))
+######################################################################
+The isotope distribution of oxygen and sulfur can be displayed with the following extra code:
+import math
+from matplotlib import pyplot as plt
+
+# very simple overlappping correction of annotations
+def adjustText(x1, y1, x2, y2):
+    if y1 > y2:
+        plt.annotate('%0.3f' % (y2), xy=(x2, y2), xytext=(x2+0.5,y2+9),
+                     textcoords='data',
+                     arrowprops=dict(arrowstyle="->", color='r', lw=0.5),
+                     horizontalalignment='right', verticalalignment='top')
+    else:
+        plt.annotate('%0.3f' % (y1), xy=(x1, y1), xytext=(x1+0.5,y1+9),
+                     textcoords='data',
+                     arrowprops=dict(arrowstyle="->", color='r', lw=0.5),
+                     horizontalalignment='right', verticalalignment='top')
+
+
+def plotDistribution(distribution):
+    n = len(distribution["mass"])
+    for i in range(0, n):
+        plt.vlines(x=distribution["mass"][i], ymin=0, ymax=distribution["abundance"][i])
+        if int(distribution["mass"][i - 1]) == int(distribution["mass"][i]) \
+                and i != 0:
+            adjustText(distribution["mass"][i - 1], distribution["abundance"][i - 1],
+                       distribution["mass"][i], distribution["abundance"][i])
+        else:
+            plt.text(x=distribution["mass"][i],
+                     y=(distribution["abundance"][i] + 2),
+                     s='%0.3f' % (distribution["abundance"][i]), va='center',
+                     ha='center')
+    plt.ylim([0, 110])
+    plt.xticks(range(math.ceil(distribution["mass"][0]) - 2,
+                     math.ceil(distribution["mass"][-1]) + 2))
+
+
+plt.figure(figsize=(10,7))
+
+plt.subplot(1,2,1)
+plt.title("Isotopic distribution of oxygen")
+plotDistribution(oxygen_isoDist)
+plt.xlabel("Atomic mass (u)")
+plt.ylabel("Relative abundance (%)")
+
+plt.subplot(1,2,2)
+plt.title("Isotopic distribution of sulfur")
+plotDistribution(sulfur_isoDist)
+plt.xlabel("Atomic mass (u)")
+plt.ylabel("Relative abundance (%)")
+
+plt.show()
+
+
+
+########################################################################
+
+methanol = EmpiricalFormula("CH3OH")
+water = EmpiricalFormula("H2O")
+ethanol = EmpiricalFormula("CH2") + methanol
+print("Ethanol chemical formula:", ethanol.toString())
+print("Ethanol composition:", ethanol.getElementalComposition())
+print("Ethanol has", ethanol.getElementalComposition()[b"H"], "hydrogen atoms")
+##################################################################################
+
+methanol = EmpiricalFormula("CH3OH")
+ethanol = EmpiricalFormula("CH2") + methanol
+
+methanol_isoDist = {"mass": [], "abundance": []}
+ethanol_isoDist = {"mass": [], "abundance": []}
+
+print("Coarse Isotope Distribution:")
+isotopes = ethanol.getIsotopeDistribution( CoarseIsotopePatternGenerator(4) )
+prob_sum = sum([iso.getIntensity() for iso in isotopes.getContainer()])
+print("This covers", prob_sum, "probability")
+for iso in isotopes.getContainer():
+    print ("Isotope", iso.getMZ(), "has abundance", iso.getIntensity()*100, "%")
+    methanol_isoDist["mass"].append(iso.getMZ())
+    methanol_isoDist["abundance"].append((iso.getIntensity() * 100))
+
+print("Fine Isotope Distribution:")
+isotopes = ethanol.getIsotopeDistribution( FineIsotopePatternGenerator(1e-3) )
+prob_sum = sum([iso.getIntensity() for iso in isotopes.getContainer()])
+print("This covers", prob_sum, "probability")
+for iso in isotopes.getContainer():
+    print ("Isotope", iso.getMZ(), "has abundance", iso.getIntensity()*100, "%")
+    ethanol_isoDist["mass"].append(iso.getMZ())
+    ethanol_isoDist["abundance"].append((iso.getIntensity() * 100))
+#####################################################################
+Together with the plotDistribution() function from above and the extra code:
+plt.figure(figsize=(10,7))
+
+plt.subplot(1,2,1)
+plt.title("Isotopic distribution of methanol")
+plotDistribution(methanol_isoDist)
+plt.xlabel("Atomic mass (u)")
+plt.ylabel("Relative abundance (%)")
+
+plt.subplot(1,2,2)
+plt.title("Isotopic distribution of ethanol")
+plotDistribution(ethanol_isoDist)
+plt.xlabel("Atomic mass (u)")
+plt.ylabel("Relative abundance (%)")
+
+plt.savefig("methanol_ethanol_isoDistribution.png")
+
+We can also decrease our cutoff and ask for more isotopes to be calculated:
+methanol = EmpiricalFormula("CH3OH")
+ethanol = EmpiricalFormula("CH2") + methanol
+
+print("Fine Isotope Distribution:")
+isotopes = ethanol.getIsotopeDistribution( FineIsotopePatternGenerator(1e-6) )
+prob_sum = sum([iso.getIntensity() for iso in isotopes.getContainer()])
+print("This covers", prob_sum, "probability")
+for iso in isotopes.getContainer():
+    print ("Isotope", iso.getMZ(), "has abundance", iso.getIntensity()*100, "%")
+
+###################################################################################
+lys = ResidueDB().getResidue("Lysine")
+print(lys.getName())
+print(lys.getThreeLetterCode())
+print(lys.getOneLetterCode())
+print(lys.getAverageWeight())
+print(lys.getMonoWeight())
+print(lys.getPka())
+print(lys.getFormula().toString())
+####################################################################################
+ox = ModificationsDB().getModification("Oxidation")
+print(ox.getUniModAccession())
+print(ox.getUniModRecordId())
+print(ox.getDiffMonoMass())
+print(ox.getId())
+print(ox.getFullId())
+print(ox.getFullName())
+print(ox.getDiffFormula())
+####################################################################################
+uridine = RibonucleotideDB().getRibonucleotide(b"U")
+print(uridine.getName())
+print(uridine.getCode())
+print(uridine.getAvgMass())
+print(uridine.getMonoMass())
+print(uridine.getFormula().toString())
+print(uridine.isModified())
+methyladenosine = RibonucleotideDB().getRibonucleotide(b"m1A")
+print(methyladenosine.getName())
+print(methyladenosine.isModified())
+#####################################################################################
+from pyopenms import *
+seq = AASequence.fromString("DFPIANGER") # create AASequence object from string representation
+prefix = seq.getPrefix(4) # extract prefix of length 4
+suffix = seq.getSuffix(5) # extract suffix of length 5
+concat = seq + seq # concatenate two sequences
+
+# print string representation of sequences
+print("Sequence:", seq)
+print("Prefix:", prefix)
+print("Suffix:", suffix)
+print("Concatenated:", concat)
+
+some mass calculations
+mfull = seq.getMonoWeight() # weight of M
+mprecursor = seq.getMonoWeight(Residue.ResidueType.Full, 2) # weight of M+2H
+
+# we can calculate mass-over-charge manually
+mz = seq.getMonoWeight(Residue.ResidueType.Full, 2) / 2.0 # m/z of [M+2H]2+
+ or simply by:
+mz = seq.getMZ(2) # same as above
+
+print()
+print("Monoisotopic mass of peptide [M] is", mfull)
+print("Monoisotopic mass of peptide precursor [M+2H]2+ is", mprecursor)
+print("Monoisotopic m/z of [M+2H]2+ is", mz)
+#######################################################################
+The AASequence object also allows iterations directly in Python
+ seq = AASequence.fromString("DFPIANGER")
+
+print("The peptide", str(seq), "consists of the following amino acids:")
+for aa in seq:
+    print(aa.getName(), ":", aa.getMonoWeight())
+################################################################################
+The N- and C-Terminus as well as the residues themself can be modified. The example below shows how to check fo such modifications.
+seq = AASequence.fromString("C[143]PKCK(Label:13C(6)15N(2))CR")
+
+# check if AASequence has a N- or C-terminal modification
+if seq.hasNTerminalModification():
+    print("N-Term Modification: ", seq.getNTerminalModification().getFullId())
+if seq.hasCTerminalModification():
+    print("C-Term Modification: ", seq.getCTerminalModification().getFullId())
+# iterate over all residues and look for modifications
+for aa in seq:
+    if (aa.isModified()):
+        print(aa.getName(), ":", aa.getMonoWeight(), ":", aa.getModificationName())
+    else:
+        print(aa.getName(), ":", aa.getMonoWeight())
+################################################################################3
+Molecular formula
+seq = AASequence.fromString("DFPIANGER")
+seq_formula = seq.getFormula()
+print("Peptide", seq, "has molecular formula", seq_formula)
+###############################################################################
+Isotope patterns
+# print coarse isotope distribution
+coarse_isotopes = seq_formula.getIsotopeDistribution( CoarseIsotopePatternGenerator(6) )
+for iso in coarse_isotopes.getContainer():
+    print ("Isotope", iso.getMZ(), "has abundance", iso.getIntensity()*100, "%")
+
+
+# print fine structure of isotope distribution
+fine_isotopes = seq_formula.getIsotopeDistribution( FineIsotopePatternGenerator(0.01) ) # max 0.01 unexplained probability
+for iso in fine_isotopes.getContainer():
+    print ("Isotope", iso.getMZ(), "has abundance", iso.getIntensity()*100, "%")
+#################################################################################
+And plot the very similar looking distributions using standard matplotlib functionality:
+import math
+from matplotlib import pyplot as plt
+
+def plotIsotopeDistribution(isotope_distribution, title="Isotope distribution"):
+    plt.title(title)
+    distribution = {"mass": [], "abundance": []}
+    for iso in isotope_distribution.getContainer():
+        distribution["mass"].append(iso.getMZ())
+        distribution["abundance"].append(iso.getIntensity() * 100)
+
+    bars = plt.bar(distribution["mass"], distribution["abundance"], width=0.01, snap=False) # snap ensures that all bars are rendered
+
+    plt.ylim([0, 110])
+    plt.xticks(range(math.ceil(distribution["mass"][0]) - 2,
+                     math.ceil(distribution["mass"][-1]) + 2))
+    plt.xlabel("Atomic mass (u)")
+    plt.ylabel("Relative abundance (%)")
+
+plt.figure(figsize=(10,7))
+plt.subplot(1,2,1)
+plotIsotopeDistribution(coarse_isotopes, "Isotope distribution - coarse")
+plt.subplot(1,2,2)
+plotIsotopeDistribution(fine_isotopes, "Isotope distribution - fine structure")
+plt.show()
+##############################################################################
+Fragment ions
+suffix = seq.getSuffix(3) # y3 ion "GER"
+print("="*35)
+print("y3 ion sequence:", suffix)
+y3_formula = suffix.getFormula(Residue.ResidueType.YIon, 2) # y3++ ion
+suffix.getMonoWeight(Residue.ResidueType.YIon, 2) / 2.0 # CORRECT
+suffix.getMonoWeight(Residue.ResidueType.XIon, 2) / 2.0 # CORRECT
+suffix.getMonoWeight(Residue.ResidueType.BIon, 2) / 2.0 # INCORRECT
+
+print("y3 mz:", suffix.getMonoWeight(Residue.ResidueType.YIon, 2) / 2.0 )
+print("y3 molecular formula:", y3_formula)
+##########################################################################
+seq = AASequence.fromString("PEPTIDESEKUEM(Oxidation)CER")
+print(seq.toUnmodifiedString())
+print(seq.toString())
+print(seq.toUniModString())
+print(seq.toBracketString())
+print(seq.toBracketString(False))
+print(AASequence.fromString("DFPIAM(UniMod:35)GER"))
+print(AASequence.fromString("DFPIAM[+16]GER"))
+print(AASequence.fromString("DFPIAM[+15.99]GER"))
+print(AASequence.fromString("DFPIAM[147]GER"))
+print(AASequence.fromString("DFPIAM[147.035405]GER"))
+###########################################################################
+s = AASequence.fromString(".(Dimethyl)DFPIAMGER.")
+    print(s, s.hasNTerminalModification())
+    s = AASequence.fromString(".DFPIAMGER.(Label:18O(2))")
+    print(s, s.hasCTerminalModification())
+    s = AASequence.fromString(".DFPIAMGER(Phospho).")
+    print(s, s.hasCTerminalModification())
+#############################################################################
+bsa = FASTAEntry() # one entry in a FASTA file
+    bsa.sequence = "MKWVTFISLLLLFSSAYSRGVFRRDTHKSEIAHRFKDLGE"
+    bsa.description = "BSA Bovine Albumin (partial sequence)"
+    bsa.identifier = "BSA"
+    alb = FASTAEntry()
+    alb.sequence = "MKWVTFISLLFLFSSAYSRGVFRRDAHKSEVAHRFKDLGE"
+    alb.description = "ALB Human Albumin (partial sequence)"
+    alb.identifier = "ALB"
+
+    entries = [bsa, alb]
+
+    f = FASTAFile()
+    f.store("example.fasta", entries)
+################################################################################
+other way to read from the disk
+entries = []
+    f = FASTAFile()
+    f.load("example.fasta", entries)
+    print( len(entries) )
+    for e in entries:
+      print (e.identifier, e.sequence)
