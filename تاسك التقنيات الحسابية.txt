@@ -333,3 +333,38 @@ entries = []
     print( len(entries) )
     for e in entries:
       print (e.identifier, e.sequence)
+      ########################################################################################
+v = ResidueDB().getResidue("V")
+a = ResidueDB().getResidue("A")
+k = ResidueDB().getResidue("K")
+l=[v,a,k,a]
+subVakaMZ=0;
+for i in l:
+    vf=EmpiricalFormula(v.getFormula().toString()).getIsotopeDistribution(CoarseIsotopePatternGenerator(5))
+    for iso in vf.getContainer():
+        subVakaMZ+=iso.getMZ()
+print(subVakaMZ)
+#Task3
+from pyopenms import *
+from urllib.request import urlretrieve
+gh = "https://raw.githubusercontent.com/OpenMS/pyopenms-extra/master"
+urlretrieve (gh + "/src/data/P02769.fasta", "123.fasta")
+
+dig = ProteaseDigestion()
+dig.getEnzymeName() # Trypsin
+bsa = "".join([l.strip() for l in open("123.fasta").readlines()[1:]])
+bsa = AASequence.fromString(bsa)
+# create all digestion products
+result = []
+dig.digest(bsa, result)
+print(result[4].toString())
+len(result)
+#####################################
+dig = ProteaseDigestion()
+dig.setEnzyme('Lys-C')
+bsa = "".join([l.strip() for l in fh.readlines()[1:]])
+bsa = AASequence.fromString(bsa)
+result = []
+dig.digest(bsa, result)
+print(result[4].toString())
+len(result)
