@@ -368,6 +368,9 @@ result = []
 dig.digest(bsa, result)
 print(result[4].toString())
 len(result)
+################################################################################################
+#SPECTRUM ALIGNMENT 
+
 from urllib.request import urlretrieve
 from pyopenms import *
 gh =  "https://raw.githubusercontent.com/OpenMS/pyopenms-extra/master"
@@ -439,3 +442,202 @@ for theo_idx, obs_idx in alignment:
 
 title = 'Observed vs theoretical spectrum (aligned)'
 mirror_plot(obs_mz, obs_int, theo_mz, theo_int, title)
+##############################################################
+#FRAGMENT SPECTRUM GENERATION 
+
+from pyopenms import *
+
+tsg  = TheoreticalSpectrumGenerator()
+spec1   = MSSpectrum()
+peptide   = AASequence.fromString("DFPIANGER")
+p      =   Param()
+p.setValue("add_b_ions", "false")
+p.setValue("add_metainfo", "true")
+tsg.setParameters(p)
+tsg.getSpectrum(spec1, peptide, 1, 1) 
+print("Spectrum 1 of", peptide, "has", spec1.size(), "peaks.")
+for ion, peak in zip(spec1.getStringDataArrays()[0], spec1):
+    print(ion.decode(), "is generated at m/z", peak.getMZ())
+
+
+import matplotlib.pyplot as plt
+plt.bar(spec1.get_peaks()[0], spec1.get_peaks()[1], snap=False) 
+plt.xlabel("m/z")
+plt.ylabel("intensity")
+
+
+mz,i = spec1.get_peaks()
+annot = spec1.getStringDataArrays()[0]
+bars = plt.bar(mz, i, snap=False) 
+idx = 0
+for rect in bars:
+    height = rect.get_height()
+    plt.text(rect.get_x() + rect.get_width() / 2.0, height, annot[idx].decode(), ha='center', va='bottom', rotation=90)
+    idx += 1
+plt.ylim(top=1.2)
+plt.xlabel("m/z")
+plt.ylabel("intensity")
+
+
+spec 2   =    MSSpectrum()
+p.setValue("add_b_ions", "true")
+p.setValue("add_a_ions", "true")
+p.setValue("add_losses", "true")
+p.setValue("add_metainfo", "true")
+tsg.setParameters(p)
+tsg.getSpectrum(spec2, peptide, 1, 2)
+
+# Iterate over annotated ions and their masses
+print("Spectrum 2 of", peptide, "has", spec2.size(), "peaks.")
+for ion, peak in zip(spec2.getStringDataArrays()[0], spec2):
+    print(ion.decode(), "is generated at m/z", peak.getMZ())
+
+exp    =   MSExperiment()
+exp.addSpectrum(spec1)
+exp.addSpectrum(spec2)
+MzMLFile().store("DFPIANGER.mzML", exp)
+
+
+
+import matplotlib.pyplot as plt
+plt.bar(spec2.get_peaks()[0], spec2.get_peaks()[1], snap=False) # snap ensures that all bars are rendered
+plt.xlabel("m/z")
+plt.ylabel("intensity")
+#######################################################################
+#IDENTIFICATION  DATA 
+
+
+
+from pyopenms import*
+
+protein_id   =    ProteinIdentification()
+peptide_id   =    PeptideIdentification()
+
+
+protein_id.setIdentifier("IdentificationRun1")
+peptide_id.setIdentifier("IdentificationRun1")
+ 
+
+print("Protein Identifier -", protein_id.getIdentifier())
+print("Peptide Identifier -", peptide_id.getIdentifier())
+
+
+protein_id = ProteinIdentification()
+protein_id.setIdentifier("IdentificationRun1")
+
+# Each ProteinIdentification object stores a vector of protein hits
+protein_hit    =    ProteinHit()
+protein_hit.setAccession("sp|MyAccession")
+protein_hit.setSequence("PEPTIDERDLQMTQSPSSLSVSVGDRPEPTIDE")
+protein_hit.setScore(1.0)
+protein_hit.setMetaValue("target_decoy", b"target") # its a target protein
+
+protein_id.setHits([protein_hit])
+
+
+now = DateTime.now()
+date_string = now.getDate()
+protein_id.setDateTime(now)
+
+
+search_parameters = SearchParameters() # ProteinIdentification::SearchParameters
+search_parameters.db = "database"
+search_parameters.charges = "+2"
+protein_id.setSearchParameters(search_parameters)
+
+
+protein_id.setSearchEngineVersion("v1.0.0")
+protein_id.setSearchEngine("SearchEngine")
+protein_id.setScoreType("HyperScore")
+
+
+for hit in protein_id.getHits():
+  print("Protein hit accession:", hit.getAccession())
+  print("Protein hit sequence:", hit.getSequence())
+  print("Protein hit score:", hit.getScore())
+
+
+eptide_id = PeptideIdentification()
+
+peptide_id.setRT(1243.56)
+peptide_id.setMZ(440.0)
+peptide_id.setScoreType("ScoreType")
+peptide_id.setHigherScoreBetter(False)
+peptide_id.setIdentifier("IdentificationRun1")
+
+# define additional meta value for the peptide identification
+peptide_id.setMetaValue("AdditionalMetaValue", "Value")
+
+# create a new PeptideHit (best PSM, best score)
+peptide_hit = PeptideHit()
+peptide_hit.setScore(1.0)
+peptide_hit.setRank(1)
+peptide_hit.setCharge(2)
+peptide_hit.setSequence(AASequence.fromString("DLQM(Oxidation)TQSPSSLSVSVGDR"))
+
+ev     =     PeptideEvidence()
+ev.setProteinAccession("sp|MyAccession")
+ev.setAABefore(b"R")
+ev.setAAAfter(b"P")
+ev.setStart(123) # start and end position in the protein
+ev.setEnd(141)
+peptide_hit.setPeptideEvidences([ev])
+
+# create a new PeptideHit (second best PSM, lower score)
+peptide_hit2 = PeptideHit()
+peptide_hit2.setScore(0.5)
+peptide_hit2.setRank(2)
+peptide_hit2.setCharge(2)
+peptide_hit2.setSequence(AASequence.fromString("QDLMTQSPSSLSVSVGDR"))
+peptide_hit2.setPeptideEvidences([ev])
+
+# add PeptideHit to PeptideIdentification
+peptide_id.setHits([peptide_hit, peptide_hit2])
+
+
+# Iterate over PeptideIdentification
+peptide_ids = [peptide_id]
+for peptide_id in peptide_ids:
+  # Peptide identification values
+  print ("Peptide ID m/z:", peptide_id.getMZ())
+  print ("Peptide ID rt:", peptide_id.getRT())
+  print ("Peptide ID score type:", peptide_id.getScoreType())
+  # PeptideHits
+  for hit in peptide_id.getHits():
+    print(" - Peptide hit rank:", hit.getRank())
+    print(" - Peptide hit sequence:", hit.getSequence())
+    print(" - Peptide hit score:", hit.getScore())
+    print(" - Mapping to proteins:", [ev.getProteinAccession()
+                                        for ev in hit.getPeptideEvidences() ] )
+
+
+
+# Store the identification data in an idXML file
+IdXMLFile().store("out.idXML", [protein_id], peptide_ids)
+# and load it back into memory
+prot_ids = []; pep_ids = []
+IdXMLFile().load("out.idXML", prot_ids, pep_ids)
+
+  # Iterate over all protein hits
+for protein_id in prot_ids:
+  for hit in protein_id.getHits():
+    print("Protein hit accession:", hit.getAccession())
+    print("Protein hit sequence:", hit.getSequence())
+    print("Protein hit score:", hit.getScore())
+    print("Protein hit target/decoy:", hit.getMetaValue("target_decoy"))
+
+  # Iterate over PeptideIdentification
+for peptide_id in pep_ids:
+  # Peptide identification values
+  print ("Peptide ID m/z:", peptide_id.getMZ())
+  print ("Peptide ID rt:", peptide_id.getRT())
+  print ("Peptide ID score type:", peptide_id.getScoreType())
+  # PeptideHits
+  for hit in peptide_id.getHits():
+    print(" - Peptide hit rank:", hit.getRank())
+    print(" - Peptide hit sequence:", hit.getSequence())
+    print(" - Peptide hit score:", hit.getScore())
+    print(" - Mapping to proteins:", [ev.getProteinAccession() for ev in hit.getPeptideEvidences() ] )
+
+
+
